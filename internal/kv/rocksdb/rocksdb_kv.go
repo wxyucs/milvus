@@ -172,7 +172,7 @@ func (kv *RocksdbKV) MultiSaveAndRemove(saves map[string]string, removals []stri
 }
 
 func (kv *RocksdbKV) MultiRemoveWithPrefix(keys []string) error {
-	panic("not implement")
+	panic("not implemented")
 }
 func (kv *RocksdbKV) MultiSaveAndRemoveWithPrefix(saves map[string]string, removals []string) error {
 	panic("not implement")
