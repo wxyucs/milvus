@@ -25,7 +25,6 @@ import (
 type rocksmqReader struct {
 	store      *gorocksdb.DB
 	topic      string
-	prefix     []byte
 	readerName string
 
 	readOpts *gorocksdb.ReadOptions
@@ -39,7 +38,8 @@ type rocksmqReader struct {
 //Seek seek the rocksmq reader to the pointed position
 func (rr *rocksmqReader) Seek(msgID UniqueID) { //nolint:govet
 	rr.currentID = msgID
-	dataKey := path.Join(rr.topic, strconv.FormatInt(msgID, 10))
+	fixTopicName := rr.topic + "/"
+	dataKey := path.Join(fixTopicName, strconv.FormatInt(msgID, 10))
 	rr.iter.Seek([]byte(dataKey))
 	if !rr.messageIDInclusive {
 		rr.currentID++
@@ -56,9 +56,6 @@ func (rr *rocksmqReader) Next(ctx context.Context) (*ConsumerMessage, error) {
 		key := iter.Key()
 		val := iter.Value()
 		tmpKey := string(key.Data())
-		if key != nil {
-			key.Free()
-		}
 
 		var msgID UniqueID
 		msgID, err = strconv.ParseInt(tmpKey[len(rr.topic)+1:], 10, 64)
@@ -71,13 +68,11 @@ func (rr *rocksmqReader) Next(ctx context.Context) (*ConsumerMessage, error) {
 			msg.Payload = make([]byte, dataLen)
 			copy(msg.Payload, origData)
 		}
-		if val != nil {
-			val.Free()
-		}
+		val.Free()
 		iter.Next()
 		rr.currentID = msgID
 	}
-	if iter.ValidForPrefix(rr.prefix) {
+	if iter.Valid() {
 		getMsg()
 		return msg, err
 	}
@@ -93,10 +88,11 @@ func (rr *rocksmqReader) Next(ctx context.Context) (*ConsumerMessage, error) {
 		}
 		rr.iter.Close()
 		rr.iter = rr.store.NewIterator(rr.readOpts)
-		dataKey := path.Join(rr.topic, strconv.FormatInt(rr.currentID+1, 10))
+		fixTopicName := rr.topic + "/"
+		dataKey := path.Join(fixTopicName, strconv.FormatInt(rr.currentID+1, 10))
 		iter = rr.iter
 		iter.Seek([]byte(dataKey))
-		if !iter.ValidForPrefix(rr.prefix) {
+		if !iter.Valid() {
 			return nil, errors.New("reader iterater is still invalid after receive mutex")
 		}
 		getMsg()
@@ -105,7 +101,7 @@ func (rr *rocksmqReader) Next(ctx context.Context) (*ConsumerMessage, error) {
 }
 
 func (rr *rocksmqReader) HasNext() bool {
-	if rr.iter.ValidForPrefix(rr.prefix) {
+	if rr.iter.Valid() {
 		return true
 	}
 
@@ -116,9 +112,10 @@ func (rr *rocksmqReader) HasNext() bool {
 		}
 		rr.iter.Close()
 		rr.iter = rr.store.NewIterator(rr.readOpts)
-		dataKey := path.Join(rr.topic, strconv.FormatInt(rr.currentID+1, 10))
+		fixTopicName := rr.topic + "/"
+		dataKey := path.Join(fixTopicName, strconv.FormatInt(rr.currentID+1, 10))
 		rr.iter.Seek([]byte(dataKey))
-		return rr.iter.ValidForPrefix(rr.prefix)
+		return rr.iter.Valid()
 	default:
 		return false
 	}

@@ -21,6 +21,7 @@ import (
 
 	rocksdbkv "github.com/milvus-io/milvus/internal/kv/rocksdb"
 	"github.com/milvus-io/milvus/internal/log"
+	"github.com/milvus-io/milvus/internal/util/typeutil"
 	"github.com/tecbot/gorocksdb"
 	"go.uber.org/zap"
 )
@@ -153,12 +154,14 @@ func (ri *retentionInfo) expiredCleanUp(topic string) error {
 	}
 	pageReadOpts := gorocksdb.NewDefaultReadOptions()
 	defer pageReadOpts.Destroy()
-	pageMsgPrefix := constructKey(PageMsgSizeTitle, topic) + "/"
+	pageMsgPrefix := constructKey(PageMsgSizeTitle, topic)
+	// ensure the iterator won't iterate to other topics
+	pageReadOpts.SetIterateUpperBound([]byte(typeutil.AddOne(pageMsgPrefix)))
 
 	pageIter := ri.kv.DB.NewIterator(pageReadOpts)
 	defer pageIter.Close()
 	pageIter.Seek([]byte(pageMsgPrefix))
-	for ; pageIter.ValidForPrefix([]byte(pageMsgPrefix)); pageIter.Next() {
+	for ; pageIter.Valid(); pageIter.Next() {
 		pKey := pageIter.Key()
 		pageID, err := parsePageID(string(pKey.Data()))
 		if pKey != nil {
@@ -249,13 +252,13 @@ func (ri *retentionInfo) calculateTopicAckedSize(topic string) (int64, error) {
 
 	pageReadOpts := gorocksdb.NewDefaultReadOptions()
 	defer pageReadOpts.Destroy()
-	pageMsgPrefix := constructKey(PageMsgSizeTitle, topic) + "/"
+	pageMsgPrefix := constructKey(PageMsgSizeTitle, topic)
 	// ensure the iterator won't iterate to other topics
 	pageIter := ri.kv.DB.NewIterator(pageReadOpts)
 	defer pageIter.Close()
 	pageIter.Seek([]byte(pageMsgPrefix))
 	var ackedSize int64
-	for ; pageIter.ValidForPrefix([]byte(pageMsgPrefix)); pageIter.Next() {
+	for ; pageIter.Valid(); pageIter.Next() {
 		key := pageIter.Key()
 		pageID, err := parsePageID(string(key.Data()))
 		if key != nil {
