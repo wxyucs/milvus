@@ -16,9 +16,8 @@ import (
 	"testing"
 
 	"github.com/milvus-io/milvus/internal/log"
-	"go.uber.org/zap"
-
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/zap"
 )
 
 func Test_ParseMetricType(t *testing.T) {
