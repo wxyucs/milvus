@@ -14,11 +14,10 @@ package metricsinfo
 import (
 	"sync"
 
+	"github.com/milvus-io/milvus/internal/log"
 	"github.com/shirou/gopsutil/cpu"
 	"github.com/shirou/gopsutil/mem"
 	"go.uber.org/zap"
-
-	"github.com/milvus-io/milvus/internal/log"
 )
 
 var (
